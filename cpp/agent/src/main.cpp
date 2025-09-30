@@ -101,7 +101,7 @@ void start(FSEventsService& service, const vector<string>& pathsToWatch) {
             &context,
             cfPaths,
             kFSEventStreamEventIdSinceNow,
-            0,
+            2,
             flags
     );
 
