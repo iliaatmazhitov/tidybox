@@ -6,18 +6,22 @@
 
 EventBuffer::EventBuffer(Config cfg, FlushCallback cb): cfg_(cfg), cb_(std::move(cb)), lastFlushPoint_(Clock::now()) {
     if (!cb_) {
-        throw std::invalid_argument("FlushCallback can't be empty");
+        throw invalid_argument("FlushCallback can't be empty");
     }
 
     if (cfg_.maxBatchSize == 0) {
-        throw std::invalid_argument("maxBatchSize must be > 0");
+        throw invalid_argument("maxBatchSize must be > 0");
     }
     buffer_.reserve(cfg_.maxBatchSize);
 }
 
+bool EventBuffer::pending() const {
+    return !buffer_.empty();
+}
+
 bool EventBuffer::flushByTime() const {
     auto now = Clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFlushPoint_).count();
+    auto elapsed = chrono::duration_cast<chrono::milliseconds>(now - lastFlushPoint_).count();
     return (!buffer_.empty()) && (elapsed >= cfg_.maxLatencyMs);
 }
 
@@ -34,7 +38,7 @@ void EventBuffer::flushInternal() {
         return;
     }
 
-    std::vector<FSEvent> tmp;
+    vector<FSEvent> tmp;
     tmp.swap(buffer_);
     cb_(std::move(tmp));
     lastFlushPoint_ = Clock::now();
@@ -46,8 +50,6 @@ void EventBuffer::flush() {
 
 void EventBuffer::add(const FSEvent &ev) {
     buffer_.push_back(ev);
-    auto now = Clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFlushPoint_).count();
     if (flushBySize()) {
         flushInternal();
         return;
@@ -58,9 +60,30 @@ void EventBuffer::add(const FSEvent &ev) {
     }
 }
 
-void EventBuffer::addMany(const std::vector<FSEvent>& events) {
-    for (auto event: events) {
+void EventBuffer::addMany(const vector<FSEvent>& events) {
+    for (const auto& event: events) {
         add(event);
     }
 }
 
+string serializeBatch(const string& deviceId, const vector<FSEvent>& events) {
+    ostringstream json;
+
+    json << "{ \"device_id\":\"" << deviceId << "\", \"events\":[";
+
+    for (size_t i = 0; i < events.size(); ++i) {
+        const FSEvent& event = events[i];
+
+        json << "{ \"id\":" << event.identifier
+             << ", \"path\":\"" << event.path
+             << "\", \"flags\":" << event.flags << "}";
+
+        if (i < events.size() - 1) {
+            json << ",";
+        }
+    }
+
+    json << "]}";
+
+    return json.str();
+}
