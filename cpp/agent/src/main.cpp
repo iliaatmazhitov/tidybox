@@ -4,37 +4,44 @@
 
 #include <iostream>
 #include "../include/FSEventsAgent.h"
+#include "../include/EventBuffer.h"
 
 using namespace std;
 
-
 int main() {
-    std::vector<std::string> pathsToWatch = {"/Users/ilya/Downloads", "/Users/ilya/Desktop"};
+    std::vector<std::string> pathsToWatch = {
+            "/Users/ilya/Downloads",
+            "/Users/ilya/Desktop"
+    };
 
-    FSEventsAgent agent(pathsToWatch, 2.0);
+    EventBuffer buffer(
+            EventBuffer::Config(5, 3000),
+            [](std::vector<FSEvent>&& batch){
+                std::cout << "=== FLUSH batch size=" << batch.size() << " ===\n";
+                for (const auto& e : batch) {
+                    std::cout << "  id=" << e.identifier
+                              << " path=" << e.path
+                              << " flags=" << e.flags
+                              << "\n";
+                }
+                std::cout << "===============================\n";
+            }
+    );
 
-    agent.start([](const std::vector<FSEvent>& events){
-        for (const auto& event : events) {
-            std::cout << "Event ID: " << event.identifier << ", Path: " << event.path;
-
-            if (event.flags & kFSEventStreamEventFlagItemCreated)
-                std::cout << " [CREATED]";
-            if (event.flags & kFSEventStreamEventFlagItemModified)
-                std::cout << " [MODIFIED]";
-            if (event.flags & kFSEventStreamEventFlagItemRemoved)
-                std::cout << " [REMOVED]";
-            if (event.flags & kFSEventStreamEventFlagItemRenamed)
-                std::cout << " [RENAMED]";
-            if (event.flags & kFSEventStreamEventFlagItemIsFile)
-                std::cout << " [FILE]";
-            if (event.flags & kFSEventStreamEventFlagItemIsDir)
-                std::cout << " [DIR]";
-
-            std::cout << std::endl;
-        }
+    FSEventsAgent agent(pathsToWatch, 0.5);
+    bool started = agent.start([&](const std::vector<FSEvent>& events){
+        buffer.addMany(events);
     });
 
-    std::cout << "Starting CFRunLoop..." << std::endl;
+    if (!started) {
+        std::cerr << "Failed to start FSEventsAgent\n";
+        return 1;
+    }
+
+    std::cout << "Watching... (Ctrl+C to stop)\n";
     CFRunLoopRun();
+
+    buffer.flush();
+
     return 0;
 }
