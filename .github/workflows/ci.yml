@@ -35,4 +35,3 @@ jobs:
           name: tidybox-agent-macos
           path: cpp/build/agent
           retention-days: 30
-
