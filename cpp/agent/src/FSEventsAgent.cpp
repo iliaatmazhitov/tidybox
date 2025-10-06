@@ -4,19 +4,38 @@
 
 #include <iostream>
 #include <CoreFoundation/CoreFoundation.h>
+#include <stdexcept>
+#include <filesystem>
 #include "../include/FSEventsAgent.h"
 
-FSEventsAgent::FSEventsAgent(const std::vector<std::string>& paths, double latency)
-        : paths_(paths), latency_(latency) {}
+FSEventsAgent::FSEventsAgent(const vector<string>& paths, double latency) : paths_(paths), latency_(latency) {
+    if (paths.empty()) {
+        throw invalid_argument("FSEventsAgent: paths list cannot be empty");
+    }
+
+    for (const auto& path : paths_) {
+        if (!filesystem::exists(path)) {
+            cerr << "[WARN] Path does not exist: " << path << endl;
+        }
+    }
+}
 
 FSEventsAgent::~FSEventsAgent() {
     stop();
 }
 
 bool FSEventsAgent::start(EventCallback cb) {
-    if (stream_)
+    if (stream_) {
+        cerr << "[FSEventsAgent] already started, ignoring second start()." << endl;
         return false;
-    callback_ = std::move(cb);
+    }
+
+    if (!cb) {
+        cerr << "[FSEventsAgent] empty callback passed to start()." << endl;
+        return false;
+    }
+
+    callback_ = move(cb);
 
     // Create a mutable array to store our paths as CFStringRefs
     CFMutableArrayRef cfPaths = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
@@ -54,7 +73,7 @@ bool FSEventsAgent::start(EventCallback cb) {
     CFRelease(cfPaths);
 
     if (!stream_) {
-        std::cerr << "Failed to create FSEventStream!" << std::endl;
+        cerr << "Failed to create FSEventStream!" << endl;
         return false;
     }
 
@@ -62,7 +81,7 @@ bool FSEventsAgent::start(EventCallback cb) {
     FSEventStreamSetDispatchQueue(stream_, queue_);
 
     if (!FSEventStreamStart(stream_)) {
-        std::cerr << "Failed to start FSEventStream!" << std::endl;
+        cerr << "Failed to start FSEventStream!" << endl;
         FSEventStreamInvalidate(stream_);
         FSEventStreamRelease(stream_);
         stream_ = nullptr;
@@ -71,9 +90,9 @@ bool FSEventsAgent::start(EventCallback cb) {
         return false;
     }
 
-    std::cout << "Started monitoring paths:" << std::endl;
+    cout << "Started monitoring paths:" << endl;
     for (const auto& path : paths_) {
-        std::cout << " - " << path << std::endl;
+        cout << " - " << path << endl;
     }
     return true;
 }
@@ -108,7 +127,7 @@ void FSEventsAgent::InstanceCallback(
         const FSEventStreamEventFlags eventFlags[],
         const FSEventStreamEventId eventIds[]
 ) {
-    std::vector<FSEvent> events;
+    vector<FSEvent> events;
     CFArrayRef cfArray = static_cast<CFArrayRef>(eventPaths);
 
     for (size_t i = 0; i < numEvents; i++) {
@@ -116,6 +135,8 @@ void FSEventsAgent::InstanceCallback(
         char pathBuffer[PATH_MAX];
         if (CFStringGetCString(cfPath, pathBuffer, PATH_MAX, kCFStringEncodingUTF8)) {
             events.emplace_back(eventIds[i], pathBuffer, eventFlags[i]);
+        } else {
+            cerr << "[WARN] failed to convert path at index " << i << endl;
         }
     }
 

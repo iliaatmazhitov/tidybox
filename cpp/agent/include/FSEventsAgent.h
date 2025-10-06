@@ -16,25 +16,25 @@ using namespace std;
 
 struct FSEvent {
     uint64_t identifier;
-    std::string path;
+    string path;
     FSEventStreamEventFlags flags;
 
-    FSEvent(uint64_t id, const std::string& p, FSEventStreamEventFlags f)
+    FSEvent(uint64_t id, const string& p, FSEventStreamEventFlags f)
             : identifier(id), path(p), flags(f) {}
 };
 
 class FSEventsAgent {
 public:
-    using EventCallback = std::function<void(const std::vector<FSEvent>&)>;
+    using EventCallback = function<void(const vector<FSEvent>&)>;
 
-    FSEventsAgent(const std::vector<std::string>& paths, double latency = 0.2);
+    FSEventsAgent(const vector<string>& paths, double latency = 0.2);
     ~FSEventsAgent();
 
     bool start(EventCallback cb);
     void stop();
 
 private:
-    std::vector<std::string> paths_;
+    vector<string> paths_;
     double latency_;
     EventCallback callback_;
     FSEventStreamRef stream_ = nullptr;

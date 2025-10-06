@@ -8,6 +8,7 @@
 #include <vector>
 #include <functional>
 #include <stdexcept>
+#include <sstream>
 #include "FSEventsAgent.h"
 
 class EventBuffer {
@@ -18,21 +19,24 @@ public:
 
         Config(size_t size = 50, uint64_t latency = 500):  maxBatchSize(size), maxLatencyMs(latency) {}
     };
-    using FlushCallback =  std::function<void(std::vector<FSEvent>&&)>;
+    using FlushCallback =  function<void(vector<FSEvent>&&)>;
     void flushInternal();
     bool flushByTime() const;
     bool flushBySize() const;
+    bool pending() const;
     EventBuffer(Config cfg, FlushCallback cb);
     void add(const FSEvent& ev);
-    void addMany(const std::vector<FSEvent>& events);
+    void addMany(const vector<FSEvent>& events);
     void flush();
     size_t size() const;
 private:
-    using Clock = std::chrono::steady_clock;
+    using Clock = chrono::steady_clock;
     Clock::time_point lastFlushPoint_;
     Config cfg_;
     FlushCallback cb_;
-    std::vector<FSEvent> buffer_;
+    vector<FSEvent> buffer_;
 };
+
+string serializeBatch(const string& deviceId, const vector<FSEvent>& events);
 
 #endif //TIDYBOX_AGENT_EVENTBUFFER_H
