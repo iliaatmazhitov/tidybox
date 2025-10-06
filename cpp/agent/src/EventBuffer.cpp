@@ -4,7 +4,6 @@
 
 #include "../include/EventBuffer.h"
 
-
 EventBuffer::EventBuffer(Config cfg, FlushCallback cb): cfg_(cfg), cb_(std::move(cb)), lastFlushPoint_(Clock::now()) {
     if (!cb_) {
         throw std::invalid_argument("FlushCallback can't be empty");
