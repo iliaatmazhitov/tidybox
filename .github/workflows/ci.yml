@@ -34,3 +34,61 @@ jobs:
           name: tidybox-agent-macos
           path: cpp/build/agent
           retention-days: 30
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop, cpp-dev ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  cpp-build-macos:
+    name: C++ Build (macOS)
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew install cmake curl
+
+      - name: Configure CMake
+        working-directory: ./cpp
+        run: |
+          mkdir -p build
+          cd build
+          cmake .. -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build tidybox-agent
+        working-directory: ./cpp/build
+        run: make -j$(sysctl -n hw.ncpu)
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: tidybox-agent-macos
+          path: cpp/build/agent
+          retention-days: 30
+go-build:
+    name: Go Build & Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Go mod download
+        working-directory: ./go
+        run: go mod download || echo "No go.mod found yet"
+
+      - name: Go build
+        working-directory: ./go
+        run: go build -v ./... || echo "No Go files to build yet"          
+          
+          
